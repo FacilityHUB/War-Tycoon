@@ -1,0 +1,63 @@
+-- AimbotModule.lua
+
+local AimbotModule = {}
+
+-- Paramètres du module, accessibles depuis d'autres scripts
+AimbotModule.FullSettings = {
+	AimBot = {
+		Checks = {
+			TeamCheck = true,
+			WallCheck = true,
+			AliveCheck = true,
+		},
+		Fov = {
+			Enable = true,
+			Visible = true,
+			Thickness = 0.6,
+			Color = Color3.fromRGB(255, 255, 255),
+			LockColor = Color3.fromRGB(255, 0, 0),
+			OffColor = Color3.fromRGB(150, 150, 150),
+			Filled = false,
+			Size = 160,
+		},
+	},
+}
+
+-- Fonction pour accéder aux paramètres du FOV
+function AimbotModule.GetFovSettings()
+	return AimbotModule.FullSettings.AimBot.Fov
+end
+
+-- Fonction pour modifier les paramètres du FOV
+function AimbotModule.SetFovSettings(size, color, thickness)
+	AimbotModule.FullSettings.AimBot.Fov.Size = size or AimbotModule.FullSettings.AimBot.Fov.Size
+	AimbotModule.FullSettings.AimBot.Fov.Color = color or AimbotModule.FullSettings.AimBot.Fov.Color
+	AimbotModule.FullSettings.AimBot.Fov.Thickness = thickness or AimbotModule.FullSettings.AimBot.Fov.Thickness
+end
+
+-- Fonction pour accéder aux paramètres de vérification (WallCheck, TeamCheck, AliveCheck)
+function AimbotModule.GetCheckSettings()
+	return AimbotModule.FullSettings.AimBot.Checks
+end
+
+-- Fonction pour modifier les paramètres de vérification
+function AimbotModule.SetCheckSettings(teamCheck, wallCheck, aliveCheck)
+	AimbotModule.FullSettings.AimBot.Checks.TeamCheck = teamCheck or AimbotModule.FullSettings.AimBot.Checks.TeamCheck
+	AimbotModule.FullSettings.AimBot.Checks.WallCheck = wallCheck or AimbotModule.FullSettings.AimBot.Checks.WallCheck
+	AimbotModule.FullSettings.AimBot.Checks.AliveCheck = aliveCheck or AimbotModule.FullSettings.AimBot.Checks.AliveCheck
+end
+
+-- Fonction pour récupérer la cible à viser
+function AimbotModule.GetPartToFov(part, localPlayer, mousePosition)
+	for _, v in ipairs(game:GetService("Players"):GetPlayers()) do
+		if v ~= localPlayer and v.Character and v.Character:FindFirstChild(part) then
+			-- Vérifications supplémentaires...
+			local distance = (v.Character[part].Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+			if distance <= 500 then
+				return v
+			end
+		end
+	end
+end
+
+return AimbotModule
