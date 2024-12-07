@@ -1,0 +1,42 @@
+-- FacilityLibrary.lua
+
+local HttpService = game:GetService("HttpService")
+
+local FacilityLibrary = {}
+
+-- HWID fixe dans la bibliothèque, ajustez-le au besoin.
+local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+
+-- Retourne le lien d'API complet (la clé sera passée en paramètre plus tard).
+function FacilityLibrary.getLink(key)
+    return "https://facilitykey.org/api/validate/" .. key .. "/" .. hwid
+end
+
+-- Fonction qui va valider la clé par défaut en faisant une requête GET
+-- Renvoie true si la clé est valide, false sinon.
+function FacilityLibrary.validateDefaultKey(key)
+    if not http_request then
+        warn("http_request n'est pas disponible.")
+        return false
+    end
+    
+    local url = FacilityLibrary.getLink(key)
+    local response = http_request({
+        Url = url,
+        Method = "GET"
+    })
+    
+    if response and response.StatusCode == 200 and response.Body then
+        local data = HttpService:JSONDecode(response.Body)
+        if data and data.message and string.find(data.message, "Key validated") then
+            return true
+        else
+            return false
+        end
+    else
+        warn("Erreur lors de la requête: ", response and response.StatusCode or "Inconnu", response and response.Body or "Vide")
+        return false
+    end
+end
+
+return FacilityLibrary
