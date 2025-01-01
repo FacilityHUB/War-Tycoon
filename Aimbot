@@ -162,4 +162,5 @@ local function getLowestHealthPlayer(trg_part)
     end
     return target
 end
+return Aimbot
 
