@@ -144,11 +144,14 @@ function Aimbot.Load()
         FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
         if Aimbot.Configuration.aimbotActive then
             local closest = getTargetPlayer()
-            if closest and closest.Character:FindFirstChild(currentTargetPart, true) then
-                local targetPartInstance = closest.Character:FindFirstChild(currentTargetPart, true)
-                local predictedPosition = predictPosition(targetPartInstance)
-                FOV.Color = Aimbot.Configuration.LockColor
-                alignCameraToTarget(predictedPosition)
+            local targetPartName = Aimbot.Configuration.SelectedPart[1] or "Head"  -- Utilise "Head" par défaut si nil
+            if closest and targetPartName and closest.Character:FindFirstChild(targetPartName, true) then
+                local targetPartInstance = closest.Character:FindFirstChild(targetPartName, true)
+                if targetPartInstance then
+                    local predictedPosition = predictPosition(targetPartInstance)
+                    FOV.Color = Aimbot.Configuration.LockColor
+                    alignCameraToTarget(predictedPosition)
+                end
             else
                 FOV.Color = Aimbot.Configuration.Color
             end
@@ -156,6 +159,6 @@ function Aimbot.Load()
             FOV.Color = Aimbot.Configuration.Color
         end
     end)
-end
+    
 
 return Aimbot
