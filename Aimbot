@@ -41,7 +41,6 @@ FOV.Filled = Aimbot.Configuration.Filled
 FOV.Radius = Aimbot.Configuration.Size
 FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
 
-
 local currentTargetPart = Aimbot.Configuration.SelectedPart[1]
 
 local function findTargetPart(player, targetPartName)
@@ -73,16 +72,43 @@ local function isInFOV(targetPosition)
 end
 
 local function getClosestPlayer(trg_part)
-    local nearest, lastDistance = nil, Aimbot.Configuration.maxDistance
+    local nearest = nil
+    local lastDistance = Aimbot.Configuration.maxDistance
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer then
             local part = findTargetPart(player, trg_part)
             local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
             if part and humanoid and humanoid.Health > 0 then
                 local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+
+                if Aimbot.Configuration.TeamCheck and localFaction and targetFaction and localFaction.Value == targetFaction.Value then
+                    continue
+                end
+
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+
                 if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
                     if distanceFromPlayer < lastDistance then
-                        nearest, lastDistance = player, distanceFromPlayer
+                        nearest = player
+                        lastDistance = distanceFromPlayer
                     end
                 end
             end
@@ -91,51 +117,49 @@ local function getClosestPlayer(trg_part)
     return nearest
 end
 
-local function getTargetPlayer()
-    return getClosestPlayer(currentTargetPart)
-end
+local function getLowestHealthPlayer(trg_part)
+    local target = nil
+    local lowestHealth = math.huge
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
 
-function Aimbot.Load()
-    UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Aimbot.Configuration.AimKey and Aimbot.Configuration.AimBotEnabled then
-            if Aimbot.Configuration.AimToggleMode then
-                Aimbot.Configuration.aimbotActive = not Aimbot.Configuration.aimbotActive
-            else
-                Aimbot.Configuration.aimbotActive = true
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local part = findTargetPart(player, trg_part)
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+            if part and humanoid and humanoid.Health > 0 then
+                local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+
+                if Aimbot.Configuration.TeamCheck and localFaction and targetFaction and localFaction.Value == targetFaction.Value then
+                    continue
+                end
+
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+
+                if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
+                    if humanoid.Health < lowestHealth then
+                        target = player
+                        lowestHealth = humanoid.Health
+                    end
+                end
             end
         end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Aimbot.Configuration.AimKey and not Aimbot.Configuration.AimToggleMode and Aimbot.Configuration.AimBotEnabled then
-            Aimbot.Configuration.aimbotActive = false
-        end
-    end)
-
-    RunService.RenderStepped:Connect(function()
-        FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
-        if Aimbot.Configuration.aimbotActive then
-            local closest = getTargetPlayer()
-            if closest and closest.Character:FindFirstChild(currentTargetPart, true) then
-                local targetPartInstance = closest.Character:FindFirstChild(currentTargetPart, true)
-                local predictedPosition = predictPosition(targetPartInstance)
-                FOV.Color = Aimbot.Configuration.LockColor
-                alignCameraToTarget(predictedPosition)
-            else
-                FOV.Color = Aimbot.Configuration.Color
-            end
-        else
-            FOV.Color = Aimbot.Configuration.Color
-        end
-    end)
+    end
+    return target
 end
 
-return Aimbot
-
---[[ Exemple Pour l'utiliser
-local Aimbot = loadstring(game:HttpGet('https://raw.githubusercontent.com/FacilityHUB/UI-AfterLath/refs/heads/main/Test'))()
-
-Aimbot.Configuration.TeamCheck = true
-Aimbot.FOV.Visible = true
-Aimbot.Load()
---]]
