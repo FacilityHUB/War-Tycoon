@@ -41,7 +41,6 @@ FOV.Filled = Aimbot.Configuration.Filled
 FOV.Radius = Aimbot.Configuration.Size
 FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
 
-
 local currentTargetPart = Aimbot.Configuration.SelectedPart[1]
 
 local function findTargetPart(player, targetPartName)
@@ -74,15 +73,42 @@ end
 
 local function getClosestPlayer(trg_part)
     local nearest, lastDistance = nil, Aimbot.Configuration.maxDistance
+    local lowestHealth = math.huge
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer then
             local part = findTargetPart(player, trg_part)
             local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
             if part and humanoid and humanoid.Health > 0 then
                 local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+
+                if Aimbot.Configuration.TeamCheck and localFaction and targetFaction and localFaction.Value == targetFaction.Value then
+                    continue
+                end
+
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+
                 if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
-                    if distanceFromPlayer < lastDistance then
-                        nearest, lastDistance = player, distanceFromPlayer
+                    if humanoid.Health < lowestHealth then
+                        nearest = player
+                        lowestHealth = humanoid.Health
                     end
                 end
             end
@@ -131,11 +157,4 @@ function Aimbot.Load()
 end
 
 return Aimbot
-
---[[ Exemple Pour l'utiliser
-local Aimbot = loadstring(game:HttpGet('https://raw.githubusercontent.com/FacilityHUB/UI-AfterLath/refs/heads/main/Test'))()
-
-Aimbot.Configuration.TeamCheck = true
-Aimbot.FOV.Visible = true
-Aimbot.Load()
---]]
+--ouaistiti
