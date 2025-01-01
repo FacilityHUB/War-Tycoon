@@ -41,9 +41,7 @@ FOV.Filled = Aimbot.Configuration.Filled
 FOV.Radius = Aimbot.Configuration.Size
 FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
 
-local function getTargetPlayer()
-    return getClosestPlayer(Aimbot.Configuration.SelectedPart[1])
-end
+local currentTargetPart = Aimbot.Configuration.SelectedPart[1]
 
 local function findTargetPart(player, targetPartName)
     if not player.Character or not targetPartName then return nil end
@@ -120,7 +118,6 @@ local function getClosestPlayer(trg_part)
 end
 
 local function getTargetPlayer()
-    return getClosestPlayer(Aimbot.Configuration.SelectedPart[1])
     return getClosestPlayer(currentTargetPart)
 end
 
@@ -160,4 +157,3 @@ function Aimbot.Load()
 end
 
 return Aimbot
---oui
