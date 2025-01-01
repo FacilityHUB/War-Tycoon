@@ -2,6 +2,7 @@ local Aimbot = {}
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Mouse = Players.LocalPlayer:GetMouse()
 local Players = game:GetService("Players")
 local Cam = workspace.CurrentCamera
 
