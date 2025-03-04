@@ -1,0 +1,31 @@
+local HttpService = game:GetService("HttpService")
+
+local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+local key = "00a5cc050444ec9891d3e1be05253111"
+local url = "https://facility-hub.xyz/api/validate/" .. key .. "/" .. hwid
+
+if http_request then
+	local response = http_request({
+		Url = url,
+		Method = "GET",
+	})
+
+	if response and response.StatusCode == 200 and response.Body then
+		local data = HttpService:JSONDecode(response.Body)
+		if data and data.message and string.find(data.message, "Key validated") then
+			print("Clé validée, exécution du code...")
+
+		else
+			warn("Key not valide. Réponse du serveur:", response.Body)
+		end
+	else
+		warn(
+			"Erreur lors de la requête. Statut:",
+			response and response.StatusCode or "Inconnu",
+			"Réponse:",
+			response and response.Body or "Vide"
+		)
+	end
+else
+	warn("http_request non disponible dans cet environnement.")
+end
