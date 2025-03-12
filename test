@@ -1,0 +1,825 @@
+local MacLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/FacilityHUB/Interface-Utilisateur/refs/heads/main/MacLib%20Upgrade"))()
+
+--//Modules\\--
+
+local Configurations = loadstring(game:HttpGet("https://raw.githubusercontent.com/FacilityHUB/Modules/refs/heads/main/Pourquoipasv2"))()
+local Aimbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/FacilityHUB/Modules/refs/heads/main/Aimbot%20V2"))() 
+
+--//UI\\--
+local Window = MacLib:Window({
+	Title = "Universal Beta",
+	Subtitle = "By Facility",
+	Size = UDim2.fromOffset(700, 500),
+	DragStyle = 2,
+	DisabledWindowControls = {},
+	Keybind = Enum.KeyCode.RightShift,
+	AcrylicBlur = true,
+})
+
+local globalSettings = {
+	UIBlurToggle = Window:GlobalSetting({
+		Name = "UI Blur",
+		Default = Window:GetAcrylicBlurState(),
+		Callback = function(bool)
+			Window:SetAcrylicBlurState(bool)
+			Window:Notify({
+				Title = Window.Settings.Title,
+				Description = (bool and "Enabled" or "Disabled") .. " UI Blur",
+				Lifetime = 5
+			})
+		end,
+	}),
+
+	NotificationToggler = Window:GlobalSetting({
+		Name = "Notifications",
+		Default = Window:GetNotificationsState(),
+		Callback = function(bool)
+			Window:SetNotificationsState(bool)
+			Window:Notify({
+				Title = Window.Settings.Title,
+				Description = (bool and "Enabled" or "Disabled") .. " Notifications",
+				Lifetime = 5
+			})
+		end,
+	}),
+}
+
+local Global_Setting = Window:GlobalSetting({
+    Name = "Our Discord",
+    Default = true,
+    Callback = function(State)
+        setclipboard("https://discord.gg/jTuXv2Kcsn")
+        Window:SetNotificationsState("Enabled")
+        Window:Notify({
+            Title = Window.Settings.Title,
+            Description = "Discord copied on your clipboard!",
+            Lifetime = 5
+        })
+    end,
+})
+
+local tabGroups = {
+	TabGroup1 = Window:TabGroup(),
+	TabGroup2 = Window:TabGroup(),
+	TabGroup3 = Window:TabGroup() 
+}
+
+local tabs = {
+	Aimbot = tabGroups.TabGroup1:Tab({ Name = "Aimbot", Image = "rbxassetid://10734977012" }),
+	ESP = tabGroups.TabGroup1:Tab({ Name = "ESP", Image = "rbxassetid://10734965702" }),
+	Misc = tabGroups.TabGroup2:Tab({ Name = "Misc", Image = "rbxassetid://10723404337" }),
+	Settings = tabGroups.TabGroup3:Tab({ Name = "Settings", Image = "rbxassetid://10734950309" })
+}
+
+local sections = {
+	--Aimbot
+	Aimbot = tabs.Aimbot:Section({ Side = "Left" }),
+	AimbotChecks = tabs.Aimbot:Section({ Side = "Right" }),
+	AimbotSettings = tabs.Aimbot:Section({ Side = "Left" }),
+	AimbotFov = tabs.Aimbot:Section({ Side = "Right" }),
+	--//Esp
+	EspEnemy = tabs.ESP:Section({ Side = "Left" }),
+	EspDisplay = tabs.ESP:Section({ Side = "Right" }),
+	EspEnemyColor = tabs.ESP:Section({ Side = "Right" }),
+	EspEnemyChecks = tabs.ESP:Section({ Side = "Right" }),
+    EspVisual = tabs.ESP:Section({ Side = "Left" }),
+	EspEnemySettings = tabs.ESP:Section({ Side = "Left" }),
+	--//Misc
+	Misc1 = tabs.Misc:Section({ Side = "Left" }),
+}
+
+-- Centralisation des services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Cam = Workspace.CurrentCamera
+-- Déclaration des variables génériques
+local plr = Players.LocalPlayer
+local mouse = plr:GetMouse()
+local torso = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+
+
+------------------///////Aimbot\\\\\\\\-----------------------------
+
+
+
+local myParagraph = sections.Aimbot:Paragraph({
+    Header = "Aimbot",
+    Body = "The aimbot defaults to AimMode = Camera. Some games require AimMode = Mouse. If the aimbot is slow, increase Sensitivity. If it doesn’t target correctly, adjust AimPriority."
+}, "FlagOption") -- FlagOption est facultatif
+
+sections.Aimbot:Toggle({
+	Name = "Aimbot",
+	Default = Aimbot.Configuration.AimBotEnabled,
+	Callback = function(value)
+		Aimbot.Configuration.AimBotEnabled = value
+	end,
+}, "EnableAimbot")
+
+local AimModeDropdown = sections.Aimbot:Dropdown({
+    Name = "Aim Mode",
+    Multi = false,
+    Required = true,
+    Options = { "Mouse", "Camera" },
+    Default = "Camera",
+    Callback = function(Value)
+        Aimbot.Configuration.AimMode = Value
+    end,
+}, "AimModeDropdown")
+
+
+sections.Aimbot:Toggle({
+	Name = "Aimbot | Mobile",
+	Default = Aimbot.Configuration.aimbotActive,
+	Callback = function(value)
+		Aimbot.Configuration.aimbotActive = value
+	end,
+}, "AimbotMobile")
+
+sections.Aimbot:Toggle({
+	Name = "Aim One Press Mode",
+	Default = Aimbot.Configuration.AimToggleMode,
+	Callback = function(value)
+		Aimbot.Configuration.AimToggleMode = value
+	end,
+}, "AimOnePressMode")
+
+sections.Aimbot:Toggle({
+	Name = "Aim Predictions",
+	Default = Aimbot.Configuration.aimpredictions,
+	Callback = function(value)
+		Aimbot.Configuration.aimpredictions = value
+	end,
+}, "AimPrediction")
+
+sections.Aimbot:Toggle({
+	Name = "TriggerBot",
+	Default = Aimbot.Configuration.TriggerBotEnabled,
+	Callback = function(value)
+		Aimbot.Configuration.TriggerBotEnabled  = value
+	end,
+}, "TriggerBot")
+
+sections.AimbotChecks:Header({
+	Name = "Checks"
+})
+
+sections.AimbotChecks:Toggle({
+	Name = "Wall Checks",
+	Default = Aimbot.Configuration.WallCheck,
+	Callback = function(value)
+		Aimbot.Configuration.WallCheck = value
+	end,
+}, "WallCheck")
+
+sections.AimbotChecks:Toggle({
+	Name = "Team Checks",
+	Default = Aimbot.Configuration.TeamCheck,
+	Callback = function(value)
+		Aimbot.Configuration.TeamCheck = value
+	end,
+}, "TeamCheck")
+
+sections.AimbotChecks:Toggle({
+	Name = "Alive Checks",
+	Default = Aimbot.Configuration.AliveCheck,
+	Callback = function(value)
+		Aimbot.Configuration.AliveCheck = value
+	end,
+}, "AliveCheck")
+
+sections.AimbotChecks:Toggle({
+	Name = "Fov Checks",
+	Default = true,
+	Callback = function(value)
+		Aimbot.Configuration.FovCheck = value
+	end,
+}, "FovCheck")
+
+sections.AimbotSettings:Header({
+	Name = "Settings"
+})
+
+local function ToggleAimbot()
+    Aimbot.Configuration.AimBotEnabled = not Aimbot.Configuration.AimBotEnabled
+end
+
+sections.AimbotSettings:Keybind({
+    Name = "Aimbot Keybind",
+    Blacklist = false,
+    Callback = function(binded)
+        ToggleAimbot() 
+        Window:Notify({
+            Title = "Aimbot",
+            Description = "Aimbot " .. (Aimbot.Configuration.AimBotEnabled and "Activé" or "Désactivé"),
+            Lifetime = 3
+        })
+    end,
+    onBinded = function(bind)
+        Window:Notify({
+            Title = "Aimbot Keybind",
+            Description = "Bindé à - " .. tostring(bind.Name),
+            Lifetime = 3
+        })
+    end,
+}, "AimbotKeybind")
+
+sections.AimbotSettings:Slider({
+	Name = "Max Distance",
+	Default = Aimbot.Configuration.maxDistance,
+	Minimum = 50,
+	Maximum = 5000,
+	DisplayMethod = "Round",
+	Precision = 0,
+	Callback = function(Value)
+		Aimbot.Configuration.maxDistance = tonumber(Value)
+	end
+}, "MaxDistanceAimbot")
+
+sections.AimbotSettings:Slider({
+	Name = "Trigger Delay",
+	Default = Aimbot.Configuration.TriggerDelay,
+	Minimum = 0.1,
+	Maximum = 1,
+	DisplayMethod = "Value",
+	Precision = 1,
+	Callback = function(Value)
+		Aimbot.Configuration.TriggerDelay = tonumber(Value)
+	end
+}, "MaxDistanceAimbot")
+
+sections.AimbotSettings:Slider({
+	Name = "Aim Sensitivity",
+	Default = Aimbot.Configuration.sensitivity,
+	Minimum = 0.1,
+	Maximum = 1,
+	DisplayMethod = "Value",
+	Precision = 1,
+	Callback = function(Value)
+		Aimbot.Configuration.sensitivity = tonumber(Value)
+	end
+}, "AimSensitivty")
+
+sections.AimbotSettings:Slider({
+	Name = "Prediction Delay",
+	Default = Aimbot.Configuration.predictionTime,
+	Minimum = 0.1,
+	Maximum = 1,
+	DisplayMethod = "Value",
+	Precision = 1,
+	Callback = function(Value)
+		Aimbot.Configuration.predictionTime = tonumber(Value)
+	end
+}, "predictionTime")
+
+
+local SelectedPartDropdown = sections.AimbotSettings:Dropdown({
+    Name = "Aim Target Part",
+    Multi = false,
+    Required = true,
+    Options = { "Head", "HumanoidRootPart", "Left Arm", "Left Leg", "Right Arm", "Right Leg" },
+    Default = "Head",
+	Callback = function(Value)
+		Aimbot.Configuration.SelectedPart = { Value }
+	end,	
+}, "SelectedPartDropdown")
+
+local PriorityDropdown = sections.AimbotSettings:Dropdown({
+    Name = "Aim Priority",
+    Multi = false,
+    Required = true,
+    Options = { "Cursor", "Closest", "LowestHealth" },
+    Default = Aimbot.Configuration.Priority,
+    Callback = function(Value)
+        Aimbot.Configuration.Priority = Value
+    end,
+}, "AimPriorityDropdown")
+
+local AimKeyDropdown = sections.AimbotSettings:Dropdown({
+    Name = "Select AimKey",
+    Multi = false,
+    Required = true,
+    Options = {"Left Click", "Right Click"},
+    Default = "Right Click",
+    Callback = function(Value)
+        if Value == "Left Click" then
+            Aimbot.UpdateAimKey(Enum.UserInputType.MouseButton1)
+        elseif Value == "Right Click" then
+            Aimbot.UpdateAimKey(Enum.UserInputType.MouseButton2)
+        end
+    end,
+}, "AimKeyDropdown")
+
+sections.AimbotFov:Header({
+	Name = "Fov"
+})
+
+sections.AimbotFov:Toggle({
+    Name = "Fov | Visible",
+    Default = Aimbot.Configuration.Visible,
+    Callback = function(value)
+        Aimbot.Configuration.Visible = value
+        Aimbot.FOV.Visible = value
+    end,
+}, "FovVisibleToggle")
+
+sections.AimbotFov:Toggle({
+    Name = "Fov | Filled",
+    Default = Aimbot.Configuration.Filled,
+    Callback = function(value)
+        Aimbot.Configuration.Filled = value
+        Aimbot.FOV.Filled = value
+    end,
+}, "FovFilledToggle")
+
+sections.AimbotFov:Slider({
+    Name = "Fov | Size",
+    Default = 250,
+    Minimum = 0,
+    Maximum = 600,
+    DisplayMethod = "Value",
+    Precision = 1,
+    Callback = function(Value)
+        Aimbot.Configuration.Size = tonumber(Value) or 0
+        Aimbot.FOV.Radius = Aimbot.Configuration.Size
+    end,
+}, "FovSizeSlider")
+
+sections.AimbotFov:Slider({
+    Name = "Fov | Thickness",
+    Default = Aimbot.Configuration.Thickness,
+    Minimum = 0,
+    Maximum = 600,
+    DisplayMethod = "Value",
+    Precision = 1,
+    Callback = function(Value)
+        Aimbot.Configuration.Thickness = tonumber(Value) or 0
+        Aimbot.FOV.Thickness = Aimbot.Configuration.Thickness
+    end,
+}, "FovThicknessSlider")
+
+sections.AimbotFov:Colorpicker({
+    Name = "Fov | Color",
+    Default = Aimbot.Configuration.Color,
+    Callback = function(Color)
+        Aimbot.Configuration.Color = Color
+    end,
+}, "FovColorPicker")
+
+sections.AimbotFov:Colorpicker({
+    Name = "Fov | Lock Color",
+    Default = Aimbot.Configuration.LockColor,
+    Callback = function(Color)
+        Aimbot.Configuration.LockColor = Color
+    end,
+}, "FovLockColorPicker")
+
+------------------///////Esp\\\\\\\\--------------------------------
+sections.EspEnemy:Header({
+	Name = "Esp"
+})
+
+sections.EspEnemy:Toggle({
+	Name = "Enable Esp",
+	Default = Configurations.teamSettings.enemy.enabled,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.enabled = value
+	end,
+}, "EnableEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | Box",
+	Default = Configurations.teamSettings.enemy.box,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.box = value
+	end,
+}, "BoxEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | Box3d",
+	Default = Configurations.teamSettings.enemy.box3d,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.box3d = value
+	end,
+}, "box3dEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | Chams",
+	Default = Configurations.teamSettings.enemy.chams,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.chams = value
+	end,
+}, "ChamsEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | HealthBar",
+	Default = Configurations.teamSettings.enemy.healthBar,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.healthBar = value
+	end,
+}, "healthBarEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | Tracer",
+	Default = Configurations.teamSettings.enemy.tracer,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.tracer = value
+	end,
+}, "tracerEnemy")
+
+sections.EspEnemy:Toggle({
+	Name = "Esp | Arrow",
+	Default = Configurations.teamSettings.enemy.offScreenArrow,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.offScreenArrow = value
+	end,
+}, "offScreenArrowEnemy")
+
+sections.EspDisplay:Header({
+	Name = "Esp Display"
+})
+
+sections.EspDisplay:Toggle({
+	Name = "Display | Name",
+	Default = Configurations.teamSettings.enemy.name,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.name = value
+	end,
+}, "DisplayName")
+
+sections.EspDisplay:Toggle({
+	Name = "Display | Distance",
+	Default = Configurations.teamSettings.enemy.distance,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.distance = value
+	end,
+}, "DisplayDistance")
+
+sections.EspDisplay:Toggle({
+	Name = "Display | Health",
+	Default = Configurations.teamSettings.enemy.healthText,
+	Callback = function(value)
+		Configurations.teamSettings.enemy.healthText = value
+	end,
+}, "DisplayHealth")
+
+sections.EspEnemyColor:Header({
+	Name = "Esp Color"
+})
+
+sections.EspEnemyColor:Colorpicker({
+    Name = "Box | Color",
+    Default = Configurations.teamSettings.enemy.boxColor[1], 
+    Callback = function(color)
+        Configurations.teamSettings.enemy.boxColor = { color, 1 } 
+    end,
+}, "BoxColor")
+
+sections.EspEnemyColor:Colorpicker({
+    Name = "box3d | Color",
+    Default = Configurations.teamSettings.enemy.box3dColor[1], 
+    Callback = function(color)
+        Configurations.teamSettings.enemy.box3dColor = { color, 1 } 
+    end,
+}, "Box3dColor")
+
+sections.EspEnemyColor:Colorpicker({
+    Name = "Tracer | Color",
+    Default = Configurations.teamSettings.enemy.tracerColor[1], 
+    Callback = function(color)
+        Configurations.teamSettings.enemy.tracerColor = { color, 1 } 
+    end,
+}, "tracerColor")
+
+sections.EspEnemyColor:Colorpicker({
+    Name = "Arrow | Color",
+    Default = Configurations.teamSettings.enemy.offScreenArrowColor[1], 
+    Callback = function(color)
+        Configurations.teamSettings.enemy.offScreenArrowColor = { color, 1 } 
+    end,
+}, "ArrowColor")
+
+sections.EspVisual:Header({
+	Name = "Visual"
+})
+
+local xrayEnabled = false
+
+local function xray()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and not v.Parent:FindFirstChildWhichIsA("Humanoid") and not v.Parent.Parent:FindFirstChildWhichIsA("Humanoid") then
+            v.LocalTransparencyModifier = xrayEnabled and 0.5 or 0
+        end
+    end
+end
+
+sections.EspVisual:Toggle({
+	Name = "X-Ray",
+	Default = false,
+	Callback = function(value)
+		xrayEnabled = value
+		xray()
+	end
+})
+
+sections.EspVisual:Button({
+	Name = "NoFog",
+	Callback = function()
+		Lighting.FogEnd = 100000
+		for i, v in pairs(Lighting:GetDescendants()) do
+			if v:IsA("Atmosphere") then
+				v:Destroy()
+			end
+		end
+	end
+})
+
+sections.EspEnemySettings:Header({
+	Name = "Esp Settings"
+})
+
+sections.EspEnemySettings:Slider({
+	Name = "Max Distance",
+	Default = Configurations.sharedSettings.maxDistance, 
+	Minimum = 0,
+	Maximum = 5000, 
+	DisplayMethod = "Value",
+	Precision = 0,
+	Callback = function(Value)
+		Configurations.sharedSettings.maxDistance = Value 
+	end
+}, "MaxDistance")
+
+local Dropdown = sections.EspEnemySettings:Dropdown({
+    Name = "Tracer | Origin",
+    Multi = false,
+    Required = true,
+    Options = { "Top", "Middle", "Bottom" },
+    Default = 2,
+    Callback = function(Value)
+        Configurations.teamSettings.enemy.tracerOrigin = Value
+    end,
+}, "TracerOrigin")
+
+
+sections.EspEnemySettings:Slider({
+	Name = "Text Size",
+	Default = Configurations.sharedSettings.textSize, 
+	Minimum = 5,
+	Maximum = 30, 
+	DisplayMethod = "Value",
+	Precision = 0,
+	Callback = function(Value)
+		Configurations.sharedSettings.textSize = Value 
+	end
+}, "TextSize")
+
+sections.EspEnemySettings:Slider({
+	Name = "Text Font",
+	Default = Configurations.sharedSettings.textFont, 
+	Minimum = 1,
+	Maximum = 10, 
+	DisplayMethod = "Value",
+	Precision = 0,
+	Callback = function(Value)
+		Configurations.sharedSettings.textFont = Value 
+	end
+}, "textFont")
+
+sections.EspEnemyChecks:Header({
+	Name = "Esp Checks"
+})
+
+sections.EspEnemyChecks:Toggle({
+	Name = "Check | Team",
+	Default = Configurations.sharedSettings.useTeamColor,
+	Callback = function(value)
+		Configurations.sharedSettings.useTeamColor = value
+	end,
+}, "CheckTeam")
+
+sections.EspEnemyChecks:Toggle({
+	Name = "Check | Distance",
+	Default = Configurations.sharedSettings.limitDistance,
+	Callback = function(value)
+		Configurations.sharedSettings.limitDistance = value
+	end,
+}, "CheckDistance")
+
+
+
+--//Misc
+
+sections.Misc1:Header({
+	Name = "Misc"
+})
+
+sections.Misc1:Toggle({
+    Name = "AntiAFK", 
+    Default = true,
+    Callback = function(value)       
+       if value then
+            local a = game:GetService("VirtualUser")
+            game:GetService("Players").LocalPlayer.Idled:Connect(function()
+                a:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+                wait(1)
+                a:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+            end)
+        end
+    end,
+}, "AntiAfkToggle")
+
+sections.Misc1:Toggle({
+    Name = "Auto Execute",
+    Default = false,
+    Callback = function(value)
+        if value then
+            queue_on_teleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/FacilityHUB/FacilityHub/refs/heads/main/Universal%20Aimbot'))()") --Changer
+            sendValidnotif("Script will be auto executed after teleport")
+        end
+    end,
+}, "AutoExecute")
+
+--Hop
+
+sections.Misc1:Button({
+    Name = "Server-Hop",
+    Callback = function()
+        Window:Dialog({
+            Title = Window.Settings.Title,
+            Description = "May crash your game if your executor doesn't support it. So be careful!",
+            Buttons = {
+                {
+                    Name = "Confirm",
+                    Callback = function()
+                        local TeleportService = game:GetService("TeleportService")
+                        local Players = game:GetService("Players")
+                        
+                        local function serverHop()
+                            local placeId = game.PlaceId
+                            local player = Players.LocalPlayer
+                            if player then
+                                TeleportService:Teleport(placeId, player)
+                            end
+                        end
+                        
+                        serverHop()
+                    end,
+                },
+                {
+                    Name = "Cancel"
+                }
+            }
+        })
+    end,
+})
+
+--boost fps
+
+sections.Misc1:Button({
+    Name = "Boost FPS",
+    Callback = function()
+        local boostFPS = true
+
+        if boostFPS then
+            local Terrain = workspace:FindFirstChildOfClass("Terrain")
+            if Terrain then
+                Terrain.WaterWaveSize = 0
+                Terrain.WaterWaveSpeed = 0
+                Terrain.WaterReflectance = 0
+                Terrain.WaterTransparency = 0
+            end
+
+            local Lighting = game:GetService("Lighting")
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+            settings().Rendering.QualityLevel = 1
+
+            for _, v in pairs(game:GetDescendants()) do
+                if
+                    v:IsA("Part")
+                    or v:IsA("UnionOperation")
+                    or v:IsA("MeshPart")
+                    or v:IsA("CornerWedgePart")
+                    or v:IsA("TrussPart")
+                then
+                    v.Material = "Plastic"
+                    v.Reflectance = 0
+                elseif v:IsA("Decal") then
+                    v.Transparency = 1
+                elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                    v.Lifetime = NumberRange.new(0)
+                elseif v:IsA("Explosion") then
+                    v.BlastPressure = 1
+                    v.BlastRadius = 1
+                end
+            end
+
+            for _, v in pairs(Lighting:GetDescendants()) do
+                if
+                    v:IsA("BlurEffect")
+                    or v:IsA("SunRaysEffect")
+                    or v:IsA("ColorCorrectionEffect")
+                    or v:IsA("BloomEffect")
+                    or v:IsA("DepthOfFieldEffect")
+                then
+                    v.Enabled = false
+                end
+            end
+
+            workspace.DescendantAdded:Connect(function(child)
+                task.spawn(function()
+                    if child:IsA("ForceField") or child:IsA("Sparkles") or child:IsA("Smoke") or child:IsA("Fire") then
+                        RunService.Heartbeat:Wait()
+                        child:Destroy()
+                    end
+                end)
+            end)
+        end
+    end,
+})
+
+sections.Misc1:Toggle({
+	Name = "Beautiful Mods",
+	Default = false,
+	Callback = function(value)
+        game.Lighting.TimeOfDay = "18:00:00"
+
+        local a = game.Lighting
+        a.Ambient = Color3.fromRGB(33, 33, 33)
+        a.Brightness = 5.69
+        a.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
+        a.ColorShift_Top = Color3.fromRGB(255, 247, 237)
+        a.EnvironmentDiffuseScale = 0.105
+        a.EnvironmentSpecularScale = 0.522
+        a.GlobalShadows = true
+        a.OutdoorAmbient = Color3.fromRGB(51, 54, 67)
+        a.ShadowSoftness = 0.18
+        a.GeographicLatitude = -15.525
+        a.ExposureCompensation = 0.75
+        local b = Instance.new("BloomEffect", a)
+        b.Enabled = true
+        b.Intensity = 0.99
+        b.Size = 9999
+        b.Threshold = 0
+
+        local c = Instance.new("ColorCorrectionEffect", a)
+        c.Brightness = 0.015
+        c.Contrast = 0.25
+        c.Enabled = true
+        c.Saturation = 0.2
+        c.TintColor = Color3.fromRGB(217, 145, 57)
+        if getgenv().mode == "Summer" then
+            c.TintColor = Color3.fromRGB(255, 220, 148)
+        elseif getgenv().mode == "Autumn" then
+            c.TintColor = Color3.fromRGB(217, 145, 57)
+        else
+            warn("No mode selected!")
+            print("Please select a mode")
+            b:Destroy()
+            c:Destroy()
+        end
+
+        local d = Instance.new("DepthOfFieldEffect", a)
+        d.Enabled = true
+        d.FarIntensity = 0.077
+        d.FocusDistance = 21.54
+        d.InFocusRadius = 20.77
+        d.NearIntensity = 0.277
+
+        local e = Instance.new("ColorCorrectionEffect", a)
+        e.Brightness = 0
+        e.Contrast = -0.07
+        e.Saturation = 0
+        e.Enabled = true
+        e.TintColor = Color3.fromRGB(255, 247, 239)
+
+        local e2 = Instance.new("ColorCorrectionEffect", a)
+        e2.Brightness = 0.2
+        e2.Contrast = 0.45
+        e2.Saturation = -0.1
+        e2.Enabled = true
+        e2.TintColor = Color3.fromRGB(255, 255, 255)
+
+        local s = Instance.new("SunRaysEffect", a)
+        s.Enabled = true
+        s.Intensity = 0.01
+        s.Spread = 0.146
+	end,
+}, "BeautifullToggle")
+
+
+MacLib:SetFolder("Facility")
+tabs.Settings:InsertConfigSection("Left")
+
+Window.onUnloaded(function()
+	print("GouziGouzi !")
+end)
+
+--//Setting:Module\\--
+Configurations.Load()
+Aimbot.Load()
+
+MacLib:LoadAutoLoadConfig()
