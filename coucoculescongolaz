@@ -61,21 +61,31 @@ local function findTargetPart(player, targetPartName)
         return nil
     end
 
-    -- Recherche directe de la partie dans le Character (inclut les descendants avec le paramètre 'true')
+    -- Débogage pour vérifier les parties du personnage
+    print("Recherche dans les enfants de " .. player.Name .. " pour " .. targetPartName)
+
+    -- Recherche directe dans le Character (inclut les descendants avec le paramètre 'true')
     local part = player.Character:FindFirstChild(targetPartName, true)
     if part and part:IsA("BasePart") then
+        print("Partie trouvée directement : " .. part.Name)
         return part
     end
 
     -- Recherche supplémentaire dans tous les descendants du personnage (comme 'Body', etc.)
     for _, descendant in ipairs(player.Character:GetDescendants()) do
-        if descendant:IsA("BasePart") and descendant.Name == targetPartName then
-            return descendant
+        if descendant:IsA("BasePart") then
+            print("Partie descendante : " .. descendant.Name)
+            if descendant.Name == targetPartName then
+                print("Partie correspondante trouvée : " .. descendant.Name)
+                return descendant
+            end
         end
     end
 
+    print("Aucune partie correspondante trouvée.")
     return nil
 end
+
 
 
 local function predictPosition(targetPart)
