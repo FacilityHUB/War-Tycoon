@@ -1,0 +1,388 @@
+local Aimbot = {}
+
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Cam = workspace.CurrentCamera
+local Mouse = Players.LocalPlayer:GetMouse()
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+Aimbot.Configuration = {
+    TeamCheck = false,
+    WallCheck = false,
+    AliveCheck = false,
+    FovCheck = true,
+
+    Fov = false,
+    Visible = false,
+    Thickness = 0.6,
+    Color = Color3.fromRGB(255, 255, 255),
+    LockColor = Color3.fromRGB(255, 0, 0),
+    OffColor = Color3.fromRGB(150, 150, 150),
+    Filled = false,
+    Size = 100,
+
+    TriggerBotEnabled = false,
+    TriggerDelay = 0.1,
+
+    SelectedPart = { "Head" },
+    maxDistance = 500,
+    sensitivity = 0.1,
+    AimBotEnabled = false,
+    aimbotActive = false,
+    AimToggleMode = false,
+    AimKey = Enum.UserInputType.MouseButton2, 
+    AimMode = "Camera",
+    Priority = "Cursor",
+    aimpredictions = false,
+    predictionTime = 0.1,
+
+    RandomAimPart = false,
+    AimPartChangeInterval = 1
+}
+
+local FOV = Drawing.new("Circle")
+Aimbot.FOV = FOV
+FOV.Visible = Aimbot.Configuration.Visible
+FOV.Thickness = Aimbot.Configuration.Thickness
+FOV.Color = Aimbot.Configuration.Color
+FOV.Filled = Aimbot.Configuration.Filled
+FOV.Radius = Aimbot.Configuration.Size
+FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
+
+function Aimbot.UpdateAimKey(newAimKey)
+    Aimbot.Configuration.AimKey = newAimKey
+end
+
+function Aimbot.Load()
+local currentTargetPart = Aimbot.Configuration.SelectedPart[1]
+local function findTargetPart(player, targetPartName)
+    if not player.Character or not targetPartName then
+        return nil
+    end
+
+    -- Recherche dans le Character et le sous-modèle "Body"
+    local function searchInModel(model)
+        for _, descendant in ipairs(model:GetDescendants()) do
+            if descendant:IsA("BasePart") and descendant.Name == targetPartName then
+                return descendant
+            end
+        end
+        return nil
+    end
+
+    -- D'abord, chercher dans le Character normal
+    local part = searchInModel(player.Character)
+    if part then
+        return part
+    end
+
+    -- Ensuite, chercher dans le sous-modèle "Body"
+    local bodyModel = player.Character:FindFirstChild("Body")
+    if bodyModel then
+        return searchInModel(bodyModel)
+    end
+
+    return nil
+end
+
+
+local function predictPosition(targetPart)
+    if not targetPart or not targetPart:IsA("BasePart") then
+        return nil
+    end
+    if Aimbot.Configuration.aimpredictions then
+        local velocity = targetPart.Velocity or Vector3.zero
+        local position = targetPart.Position or Vector3.zero
+        return position + velocity * Aimbot.Configuration.predictionTime
+    end
+    return targetPart.Position
+end
+
+local function moveMouseToTarget(targetPosition)
+    local targetPos = Cam:WorldToViewportPoint(targetPosition)
+    local viewportCenter = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
+    local offset = Vector2.new(targetPos.X - viewportCenter.X, targetPos.Y - viewportCenter.Y)
+    mousemoverel(offset.X * Aimbot.Configuration.sensitivity, offset.Y * Aimbot.Configuration.sensitivity)
+end
+
+local function alignCameraToTarget(targetPosition)
+    Cam.CFrame = CFrame.new(Cam.CFrame.Position, targetPosition)
+end
+
+local function isInFOV(targetPosition)
+    local screenPosition, isVisible = Cam:WorldToViewportPoint(targetPosition)
+    local mousePosition = Vector2.new(Mouse.X, Mouse.Y)
+    local distanceFromCursor = (Vector2.new(screenPosition.X, screenPosition.Y) - mousePosition).Magnitude
+
+    return isVisible and distanceFromCursor <= FOV.Radius
+end
+
+local function isValidTarget(player)
+    if not player or player == Players.LocalPlayer then return false end
+    
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end  
+    
+    if Aimbot.Configuration.TeamCheck and player.Team == Players.LocalPlayer.Team then
+        return false
+    end
+    
+    if Aimbot.Configuration.WallCheck then
+        local part = findTargetPart(player, currentTargetPart)
+        if part then
+            local ray = workspace:FindPartOnRayWithIgnoreList(
+                Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * (Cam.CFrame.Position - part.Position).Magnitude),
+                { Players.LocalPlayer.Character, Cam }
+            )
+            if not ray or not ray:IsDescendantOf(player.Character) then
+                return false
+            end
+        end
+    end
+    
+    return true
+end
+
+local function triggerBot(target)
+    if Aimbot.Configuration.TriggerBotEnabled and target and isValidTarget(target) then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0) 
+        task.wait(Aimbot.Configuration.TriggerDelay)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)  
+    end
+end
+
+local function getClosestPlayer(trg_part)
+    local nearest = nil
+    local lastDistance = Aimbot.Configuration.maxDistance
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local part = findTargetPart(player, trg_part)
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+            if part and humanoid and humanoid.Health > 0 then
+                local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+
+                if Aimbot.Configuration.TeamCheck then
+                    local sameFaction = localFaction and targetFaction and localFaction.Value == targetFaction.Value
+                    local hasTeammateLabel = player.Character and player.Character:FindFirstChild("HumanoidRootPart") 
+                        and player.Character.HumanoidRootPart:FindFirstChild("TeammateLabel")
+                    
+                    -- Vérification de l'équipe avec la condition que tu as donnée
+                    if (sameFaction or hasTeammateLabel) or (player.Team == Players.LocalPlayer.Team) then
+                        continue
+                    end
+                end
+                 
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+                
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+                
+                if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
+                    if distanceFromPlayer < lastDistance then
+                        nearest = player
+                        lastDistance = distanceFromPlayer
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+
+local function getLowestHealthPlayer(trg_part)
+    local target = nil
+    local lowestHealth = math.huge
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local part = findTargetPart(player, trg_part)
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+            if part and humanoid and humanoid.Health > 0 then
+                local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+                
+                if Aimbot.Configuration.TeamCheck then
+                    local sameFaction = localFaction and targetFaction and localFaction.Value == targetFaction.Value
+                    local hasTeammateLabel = player.Character and player.Character:FindFirstChild("HumanoidRootPart") 
+                        and player.Character.HumanoidRootPart:FindFirstChild("TeammateLabel")
+                    
+                    -- Vérification de l'équipe avec la condition que tu as donnée
+                    if (sameFaction or hasTeammateLabel) or (player.Team == Players.LocalPlayer.Team) then
+                        continue
+                    end
+                end
+                
+
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+                
+                if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
+                    if humanoid.Health < lowestHealth then
+                        target = player
+                        lowestHealth = humanoid.Health
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+local function getPlayerClosestToCursor(trg_part)
+    local nearest = nil
+    local smallestDistance = math.huge
+    local mousePosition = Vector2.new(Mouse.X, Mouse.Y)
+    local localFaction = Players.LocalPlayer:FindFirstChild("PersonalFactionData")
+        and Players.LocalPlayer.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local part = findTargetPart(player, trg_part)
+            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            local targetFaction = player:FindFirstChild("PersonalFactionData")
+                and player.PersonalFactionData:FindFirstChild("PersonalFaction")
+
+            if part and humanoid and humanoid.Health > 0 then
+                local screenPosition, isVisible = Cam:WorldToViewportPoint(part.Position)
+                local distanceToCursor = (Vector2.new(screenPosition.X, screenPosition.Y) - mousePosition).Magnitude
+                
+                if Aimbot.Configuration.TeamCheck then
+                    local sameFaction = localFaction and targetFaction and localFaction.Value == targetFaction.Value
+                    local hasTeammateLabel = player.Character and player.Character:FindFirstChild("HumanoidRootPart") 
+                        and player.Character.HumanoidRootPart:FindFirstChild("TeammateLabel")
+                    
+                    -- Vérification de l'équipe avec la condition que tu as donnée
+                    if (sameFaction or hasTeammateLabel) or (player.Team == Players.LocalPlayer.Team) then
+                        continue
+                    end
+                end
+                
+
+                local distanceFromPlayer = (Cam.CFrame.Position - part.Position).Magnitude
+                if distanceFromPlayer > Aimbot.Configuration.maxDistance then
+                    continue
+                end
+
+                if Aimbot.Configuration.WallCheck then
+                    local ray = workspace:FindPartOnRayWithIgnoreList(
+                        Ray.new(Cam.CFrame.Position, (part.Position - Cam.CFrame.Position).Unit * distanceFromPlayer),
+                        { Players.LocalPlayer.Character, Cam }
+                    )
+                    if not ray or not ray:IsDescendantOf(player.Character) then
+                        continue
+                    end
+                end
+                
+                if not Aimbot.Configuration.FovCheck or isInFOV(part.Position) then
+                    if distanceToCursor < smallestDistance then
+                        nearest = player
+                        smallestDistance = distanceToCursor
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function getTargetPlayer()
+    if Aimbot.Configuration.Priority == "LowestHealth" then
+        return getLowestHealthPlayer(currentTargetPart)
+    elseif Aimbot.Configuration.Priority == "Closest" then
+        return getClosestPlayer(currentTargetPart)
+    elseif Aimbot.Configuration.Priority == "Cursor" then
+        return getPlayerClosestToCursor(currentTargetPart)
+    end
+end
+
+task.spawn(function()
+    while true do
+        if Aimbot.Configuration.RandomAimPart then
+            currentTargetPart = Aimbot.Configuration.SelectedPart[math.random(1, #Aimbot.Configuration.SelectedPart)]
+            task.wait(Aimbot.Configuration.AimPartChangeInterval)
+        else
+            currentTargetPart = Aimbot.Configuration.SelectedPart[1]
+            task.wait()
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Aimbot.Configuration.AimKey and Aimbot.Configuration.AimBotEnabled then
+        if Aimbot.Configuration.AimToggleMode then
+            Aimbot.Configuration.aimbotActive = not Aimbot.Configuration.aimbotActive
+        else
+            Aimbot.Configuration.aimbotActive = true
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if
+        input.UserInputType == Aimbot.Configuration.AimKey
+        and not Aimbot.Configuration.AimToggleMode
+        and Aimbot.Configuration.AimBotEnabled
+    then
+        Aimbot.Configuration.aimbotActive = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    FOV.Position = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
+    if Aimbot.Configuration.aimbotActive then
+        local closest = getTargetPlayer()
+        if closest and closest.Character and closest.Character:FindFirstChild(currentTargetPart, true) then
+            local targetPartInstance = closest.Character:FindFirstChild(currentTargetPart, true)
+            local predictedPosition = predictPosition(targetPartInstance)
+            FOV.Color = Aimbot.Configuration.LockColor
+
+            if Aimbot.Configuration.AimMode == "Mouse" then
+                moveMouseToTarget(predictedPosition)
+            elseif Aimbot.Configuration.AimMode == "Camera" then
+                alignCameraToTarget(predictedPosition)
+            end
+
+            triggerBot(closest)
+        else
+            FOV.Color = Aimbot.Configuration.Color
+        end
+    else
+        FOV.Color = Aimbot.Configuration.Color
+    end
+end)
+
+end
+
+return Aimbot
